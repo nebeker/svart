@@ -76,6 +76,10 @@ def main() -> None:
                         default=0,
                         help="Seconds between each check of the ambient level (default: 0)")
 
+    parser.add_argument("--hysteresis", "-s",
+                        default=100,
+                        help="Brightness threshold for mode switch (default: 100)")
+
     parser.add_argument("--version",
                         action="store_true",
                         help="Show version number")
@@ -85,6 +89,7 @@ def main() -> None:
     global verbose
     verbose = args.verbose
     timeout = int(args.timeout)
+    hysteresis = int(args.hysteresis)
     ambient_level_for_darkmode = int(args.ambient.replace(",", ""))
 
     signal.signal(signal.SIGINT, exit_gracefully)
@@ -106,18 +111,18 @@ def main() -> None:
     while True:
         current_ambient_level = als.getSensorReadings()[0]
 
-        if current_ambient_level <= ambient_level_for_darkmode:
-            if current_mode != "dark":
-                debug_print("Setting mode to dark")
-                set_mode_to("dark")
-                current_mode = "dark"
-        else:
-            if current_mode != "light":
+        if current_mode == "dark":
+            if current_ambient_level >= ambient_level_for_darkmode + hysteresis:
                 debug_print("Setting mode to light")
                 set_mode_to("light")
                 current_mode = "light"
+        elif current_mode != "light":
+            if current_ambient_level <= ambient_level_for_darkmode - hysteresis:
+                debug_print("Setting mode to dark")
+                set_mode_to("dark")
+                current_mode = "dark"
 
-        debug_print(f"Ambience level: {current_ambient_level}", end="\r")
+        debug_print(f"Ambient light level: {current_ambient_level}", end="\r")
         # Since this is running in a while loop, it is very CPU intensive, but
         # it has not caused my Macbook Air to become slow, so I prefer to keep
         # the timeout to 0s has the changing of the mode is more immediate.
@@ -127,4 +132,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
